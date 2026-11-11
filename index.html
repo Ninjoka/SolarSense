@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>SolarSense – Crew Radiation Triage</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0f1224;--panel:#171b33;--line:#2a3055;--ink:#e8eaf6;--mute:#8d93b8;--ok:#4cc9b0;--warn:#f2b64a;--bad:#ff5a4f;--accent:var(--ok);
+ box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:light){:root:not([data-theme="dark"]){--bg:#eef0f8;--panel:#fff;--line:#d3d7ec;--ink:#161a33;--mute:#5b6290;--ok:#0b8a73;--warn:#b57700;--bad:#c92a20}}
+:root[data-theme="dark"]{--bg:#0f1224;--panel:#171b33;--line:#2a3055;--ink:#e8eaf6;--mute:#8d93b8}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:400 15px/1.45 "IBM Plex Sans",system-ui,sans-serif;font-variant-numeric:tabular-nums;max-width:1100px;margin:0 auto;padding:16px}
+body.yellow{--accent:var(--warn)}body.red{--accent:var(--bad)}
+header{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;padding-bottom:14px;border-bottom:1px solid var(--line)}
+h1{font-size:20px;margin:0;font-weight:600}
+.sub{color:var(--mute);font-size:13px}
+.badge{padding:6px 14px;border-radius:999px;border:2px solid var(--accent);color:var(--accent);font-weight:600}
+.hero{margin:18px 0;padding:22px;border:1px solid var(--accent);border-radius:14px;background:var(--panel);display:grid;gap:14px;grid-template-columns:1fr auto;align-items:center;transition:border-color .4s}
+.hero .big{font-size:clamp(44px,10vw,84px);font-weight:600;line-height:1;color:var(--accent)}
+.hero p{margin:6px 0 0;color:var(--mute);max-width:52ch}
+.stats{display:flex;gap:22px;flex-wrap:wrap}.stats b{display:block;font-size:22px}.stats span{color:var(--mute);font-size:13px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(235px,1fr));gap:12px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px}
+.card.YELLOW{border-color:var(--warn)}.card.RED{border-color:var(--bad)}
+.card h3{margin:0;font-size:15px;display:flex;justify-content:space-between}
+.pill{font-size:12px;font-weight:600;padding:2px 9px;border-radius:999px}
+.GREEN .pill{background:var(--ok);color:#06231d}.YELLOW .pill{background:var(--warn);color:#2b1d00}.RED .pill{background:var(--bad);color:#2b0300}
+svg.spark{width:100%;height:46px;margin:8px 0}
+.row{display:flex;justify-content:space-between;font-size:13px;color:var(--mute)}.row b{color:var(--ink);font-weight:500}
+.risk{height:6px;background:var(--line);border-radius:3px;margin:8px 0}.risk i{display:block;height:100%;border-radius:3px;background:var(--accent2,var(--ok));transition:width .5s}
+.dest{margin-top:8px;font-size:13px;font-weight:500}
+h2{font-size:16px;margin:22px 0 10px}
+.map{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:8px}
+.map svg{width:100%;height:auto;display:block}
+.mod{fill:none;stroke:var(--line);stroke-width:2}.mod.shield{stroke:var(--ok);stroke-width:3}
+.ml{fill:var(--mute);font-size:13px}
+.dot{transition:transform .9s ease}
+.controls{display:flex;gap:10px;flex-wrap:wrap;margin:18px 0 8px}
+button{font:inherit;font-weight:600;padding:12px 18px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer;min-height:44px}
+button.go{background:var(--bad);border-color:var(--bad);color:#fff}
+button:focus-visible{outline:3px solid var(--warn);outline-offset:2px}
+.note{color:var(--mute);font-size:12px}
+@media(max-width:640px){.hero{grid-template-columns:1fr}}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<header>
+ <div><h1>SolarSense</h1><div class="sub">Crew radiation triage · Deep Space Gateway · <span id="mt">MET 000:00:00</span></div></div>
+ <div class="badge" id="badge">S0 · Nominal</div>
+</header>
+
+<section class="hero" aria-live="polite">
+ <div>
+  <div class="sub" id="heroLabel">No solar storm in the forecast</div>
+  <div class="big" id="eta">––:––</div>
+  <p id="heroMsg">Monitoring proton flux and crew vitals. Everyone works normally.</p>
+ </div>
+ <div class="stats">
+  <div><b id="flux">0.5</b><span>protons/cm²·s·sr (≥10 MeV)</span></div>
+  <div><b id="src">simulated</b><span>data source</span></div>
+ </div>
+</section>
+
+<div class="grid" id="crew"></div>
+
+<h2>Habitat shelter map</h2>
+<div class="map">
+<svg viewBox="0 0 720 250" role="img" aria-label="Habitat map with crew positions">
+ <rect class="mod" x="20" y="30" width="200" height="190" rx="10"/><text class="ml" x="34" y="54">Crew quarters</text>
+ <rect class="mod" x="250" y="30" width="200" height="190" rx="10"/><text class="ml" x="264" y="54">Node 2 · secondary shield</text>
+ <rect class="mod shield" x="480" y="30" width="220" height="190" rx="10"/><text class="ml" x="494" y="54">Bay 3 · polyethylene shield</text>
+ <g id="dots"></g>
+</svg>
+</div>
+
+<div class="controls">
+ <button class="go" id="storm">Trigger solar flare shockwave</button>
+ <button id="reset">Reset to nominal</button>
+</div>
+<p class="note" id="foot">Data comes from the SolarSense backend when it is running (add ?backend=host:port to point elsewhere); otherwise it is simulated in the browser. Risk index = 0.4 · flux + 0.3 · dose + 0.3 · stress, each scaled 0–100. Green below 30, red at 70 and above.</p>
+
+<script>
+const CREW=[{id:"ASTRO-1",base:65,k:1.3},{id:"ASTRO-2",base:72,k:2.1},{id:"ASTRO-3",base:68,k:1.6},{id:"ASTRO-4",base:70,k:1.4}];
+const W=[0.4,0.3,0.3], SH={bay3:[560,150],node2:[350,150],quarters:[120,150]};
+const st={flux:0.5,target:0.5,eta:null,t0:Date.now(),live:false,crew:CREW.map(c=>({...c,hr:c.base,hist:Array(40).fill(c.base),dose:0.02,stress:1}))};
+const $=id=>document.getElementById(id);
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const level=f=>f>=1e5?"S5":f>=1e4?"S4":f>=1e3?"S3":f>=1e2?"S2":f>=10?"S1":"S0";
+
+function risk(a){
+ const fs=clamp(Math.log10(Math.max(st.flux,1))/3,0,1)*100;
+ const ds=clamp(a.dose/1.5,0,1)*100;
+ const ss=clamp((a.hr/a.base-1)/1.2,0,1)*100;
+ const r=Math.round(W[0]*fs+W[1]*ds+W[2]*ss);
+ return {r,status:r>=70?"RED":r>=30?"YELLOW":"GREEN",ratio:a.hr/a.base};
+}
+function build(){
+ $("crew").innerHTML=st.crew.map((a,i)=>`<div class="card GREEN" id="c${i}"><h3>${a.id}<span class="pill">GREEN</span></h3>
+ <svg class="spark" viewBox="0 0 200 46" preserveAspectRatio="none"><polyline fill="none" stroke="currentColor" stroke-width="2" points=""/></svg>
+ <div class="row"><span>Heart rate</span><b></b></div><div class="row"><span>Stress ratio</span><b></b></div>
+ <div class="row"><span>Dose rate</span><b></b></div><div class="risk"><i></i></div>
+ <div class="row"><span>Risk index</span><b></b></div><div class="dest"></div></div>`).join("");
+ $("dots").innerHTML=st.crew.map((a,i)=>`<g class="dot" id="d${i}"><circle r="16" fill="var(--ok)"/><text text-anchor="middle" y="5" font-size="13" font-weight="600" fill="#06231d">${i+1}</text></g>`).join("");
+}
+function tick(){
+ if(st.srv&&Date.now()-st.srvAt>3000){st.srv=null;st.target=st.flux=0.5;st.eta=null;$("src").textContent="simulated";}
+ const storm=st.eta!==null;
+ if(!st.srv)st.flux+=(st.target-st.flux)*0.12;
+ const lv=level(st.flux);
+ if(!st.srv&&storm&&st.eta>0)st.eta-=1;
+ st.crew.forEach(a=>{
+  if(st.srv){const m=st.srv.crew.find(x=>x.astronaut_id===a.id);if(m){a.hr=m.heart_rate_bpm;a.base=m.hr_baseline;a.dose=m.active_dosimeter_msv_hr;a.hist.push(a.hr);a.hist.shift();}return;}
+  const goal=a.base*(st.target>=1000?a.k:st.target>=10?1+(a.k-1)*0.5:1);
+  a.hr+=(goal-a.hr)*0.15+(Math.random()-0.5)*3;
+  a.hist.push(a.hr);a.hist.shift();
+  const rate=0.02+(st.flux>10?Math.log10(st.flux)*0.35*(a.base===72?1.25:1):0);
+  a.dose=rate;
+ });
+ const res=st.crew.map(risk);
+ const order=res.map((x,i)=>i).sort((x,y)=>res[y].r-res[x].r);
+ const top=Math.max(...res.map(x=>x.r));
+ const gs=top>=70?"red":top>=30?"yellow":"";
+ document.body.className=gs;
+ $("badge").textContent=lv+(lv==="S0"?" · Nominal":lv==="S1"||lv==="S2"?" · Warning":" · Critical");
+ $("flux").textContent=st.flux<10?st.flux.toFixed(1):Math.round(st.flux).toLocaleString();
+ if(storm&&st.eta>0){const m=Math.floor(st.eta/60),s=st.eta%60;$("eta").textContent=m>=120?Math.floor(m/60)+"h "+String(m%60).padStart(2,"0")+"m":String(m).padStart(2,"0")+":"+String(s).padStart(2,"0");
+  $("heroLabel").textContent="Solar particle front arrives in";
+  $("heroMsg").textContent=top>=70?"Shelter protocol active. Highest-stress crew go to the thickest shielding first.":"Flare detected. Finish non-essential tasks and prepare to shelter.";}
+ else if(storm){$("eta").textContent="NOW";$("heroLabel").textContent="Radiation front is passing";$("heroMsg").textContent="Stay in assigned shelter until the all-clear.";}
+ else{$("eta").textContent="––:––";$("heroLabel").textContent="No solar storm in the forecast";$("heroMsg").textContent="Monitoring proton flux and crew vitals. Everyone works normally.";}
+ st.crew.forEach((a,i)=>{
+  const r=res[i],c=$("c"+i),rank=order.indexOf(i);
+  c.className="card "+r.status;c.querySelector(".pill").textContent=r.status;
+  const pts=a.hist.map((v,j)=>`${j*200/39},${46-clamp((v-50)/100,0,1)*42-2}`).join(" ");
+  c.querySelector("polyline").setAttribute("points",pts);
+  const b=c.querySelectorAll(".row b");
+  b[0].textContent=Math.round(a.hr)+" bpm";b[1].textContent=r.ratio.toFixed(2)+"×";b[2].textContent=a.dose.toFixed(2)+" mSv/hr";b[3].textContent=r.r+" / 100";
+  const bar=c.querySelector(".risk i");bar.style.width=r.r+"%";bar.style.setProperty("--accent2",r.status==="RED"?"var(--bad)":r.status==="YELLOW"?"var(--warn)":"var(--ok)");
+  let loc="quarters",txt="Nominal quarters";
+  if(top>=70){loc=rank<2?"bay3":"node2";txt=(rank<2?"Go to Bay 3 · priority ":"Go to Node 2 · priority ")+(rank+1);}
+  else if(top>=30){txt="Prepare to shelter";}
+  c.querySelector(".dest").textContent=txt;
+  const slot=loc==="bay3"?rank:loc==="node2"?rank-2:i;
+  const p=SH[loc];$("d"+i).style.transform=`translate(${p[0]+(slot%2)*70-35}px,${p[1]+(slot>>1)*50-25+(loc==="quarters"?0:0)}px)`;
+  $("d"+i).firstChild.setAttribute("fill",r.status==="RED"?"var(--bad)":r.status==="YELLOW"?"var(--warn)":"var(--ok)");
+ });
+ const e=Math.floor((Date.now()-st.t0)/1000+3600*5);
+ $("mt").textContent="MET "+String(Math.floor(e/3600)).padStart(3,"0")+":"+String(Math.floor(e/60)%60).padStart(2,"0")+":"+String(e%60).padStart(2,"0");
+}
+const BK=new URLSearchParams(location.search).get("backend")||"localhost:8000";
+const post=p=>{try{fetch("http://"+BK+p,{method:"POST"}).catch(()=>{});}catch(e){}};
+$("storm").onclick=()=>{if(st.srv){post("/demo/storm");return;}st.target=1500;st.eta=35*60;};
+$("reset").onclick=()=>{if(st.srv){post("/demo/reset");return;}st.target=0.5;st.eta=null;};
+function connect(){ // use the Python backend when it is running; otherwise keep simulating in the browser
+ try{const ws=new WebSocket("ws://"+BK+"/ws/telemetry");
+  ws.onmessage=ev=>{const m=JSON.parse(ev.data),w=m.space_weather;st.srv=m;st.srvAt=Date.now();st.flux=st.target=w.proton_flux;st.eta=w.cme_eta_seconds;$("src").textContent=w.source+" · backend";};
+  ws.onclose=()=>setTimeout(connect,5000);ws.onerror=()=>ws.close();
+ }catch(e){setTimeout(connect,5000);}
+}
+connect();
+(async()=>{ // try the live NOAA feed; blocked on some hosts, so fall back to the simulation
+ try{const r=await fetch("https://services.swpc.noaa.gov/json/goes/primary/integral-protons-1-day.json");
+  const d=(await r.json()).filter(x=>x.energy===">=10 MeV");const f=d[d.length-1].flux;
+  if(f>=0){st.live=true;st.flux=st.target=f;$("src").textContent="NOAA live";}}catch(e){}
+})();
+build();tick();setInterval(tick,1000);
+</script>
+</body>
+</html>
